@@ -1,0 +1,242 @@
+﻿<!DOCTYPE HTML>
+<!--------------------------------------------------------------------------->  
+<!--                           INTRODUCTION                                
+
+ The CodeProject article submission template (HTML version)
+
+Using this template will help us post your article sooner. To use, just 
+follow the 3 easy steps below:
+ 
+     1. Fill in the article description details
+     2. Add links to your images and downloads
+     3. Include the main article text
+
+That's all there is to it! All formatting will be done by our submission
+scripts and style sheets. 
+
+-->  
+<!--------------------------------------------------------------------------->  
+<!--                        IGNORE THIS SECTION                            -->
+<html>
+<head>
+<title>CodeProject</title>
+<Style>
+BODY, P, TD { font-family: Verdana, Arial, Helvetica, sans-serif; font-size: 10pt }
+BODY {padding:15px; }
+H2,H3,H4,H5 { color: #ff9900; font-weight: bold; }
+H2 { font-size: 13pt; }
+H3 { font-size: 12pt; }
+H4 { font-size: 10pt; color: black; }
+PRE { BACKGROUND-COLOR: #FBEDBB; FONT-FAMILY: "Courier New", Courier, mono; WHITE-SPACE: pre; }
+CODE { COLOR: #990000; FONT-FAMILY: "Courier New", Courier, mono; }
+</style>
+<link type="text/css" rel="stylesheet" 
+      href="https://codeproject.global.ssl.fastly.net/App_Themes/CodeProject/Css/Main.min.css">
+</head>
+<body bgcolor="#FFFFFF" color=#000000>
+<!--------------------------------------------------------------------------->  
+
+
+<!-------------------------------     STEP 1      --------------------------->
+<!--  Fill in the details (CodeProject will reformat this section for you) -->
+
+<pre lang="C++" data-lang-orig="C++">
+Title:       Socket Library with HTTP/1.1 and URI
+Description: Socket Library with implementation of HTTP/1.1 (RFC 2616) and URI (RFC 2396)
+Abstract:    Socket Library simplifies creating of socket server and client
+
+Author:      9o1d
+Email:       usa.fax@gmail.com
+
+Language:    C
+Platform:    Linux, Windows
+Technology:  HTTP/1.1, URI, Socket
+Topic:       Network
+
+Section      Internet / Network
+SubSection   HTTP
+
+License:     CPOL
+</pre>
+
+<!-------------------------------     STEP 2      --------------------------->
+<!--  Include download and sample image information.                       --> 
+
+<ul class=download>
+<li><a href="Socket_library_src.zip">Download source - 49 Kb</a></li>
+</ul>
+
+
+<!-------------------------------     STEP 3      --------------------------->
+
+<!--  Add the article text. Please use simple formatting (<h2>, <p> etc)   -->
+
+<h2>Introduction</h2>
+
+<p>This is implementation of HTTP/1.1 and URI in C. The RFC 2616 and RFC 2396 is not newest, but there is plans to add the latest RFC.</p>
+<p>I created simple server with asynchronous sockets and select() function. Server uses pool of workers. Multithreading features are based on pthread library.</p>
+<p>Strings and buffers in memory is supported by special string library.</p>
+<p>I used names for libraries, which contains of main title and suffix 'aa', it is my initials. For example, stringaa, httpaa, uriaa, socketaa, workeraa. This is simultaneously the types of data for certain structures.</p>
+<p>The library simplifies creating of multipurpose server or client.</p>
+<p>I write the library in GNU/Linux, and it has definitions for WIN32.</p>
+
+<h2>The Socket Library</h2>
+
+<p>This is 'alpha' version of the Socket library. The Socket library is using the libraries: HTTP, URI, Worker and String.</p>
+<p>The HTTP library works with HTTP/1.1 and implements RFC 2616. I know it's not a new RFC. I plan to add the newest RFC.</p>
+
+<h3>Using the code</h3>
+
+<p>Every function of the library accepts a struct of data. For example, Server can be declared as a <code>socketaa</code> struct.</p>
+
+<pre lang="C++" data-lang-orig="C++">socketaa server;
+
+server.work.port = WORKERAA_HTTP_DEBUG_PORT;
+server.work.pool.worker_count = WORKERAA_POOL_WORKER_COUNT_MIN + 1;
+server.work.pool.work_size_max = WORKERAA_POOL_WORK_COUNT_MAX;
+</pre>
+
+<p>We can set properties of a server. The <code>port</code> is number port of listen socket. The <code>worker_count</code> is count of worker's threads. The <code>work_size_max</code> is size of works array.</p>
+<p>Names of functions of socket library begins from 'socketaa' prefix. To start server it is need to call <code>socketaa_server()</code> function with a pointer to <code>socketaa</code> struct as an argument.</p>
+<pre lang="C++" data-lang-orig="C++">socketaa_server(&server);
+</pre>
+
+<h3>Basic principles</h3>
+
+<p>The HTTP library can parse HTTP/1.1 request and fill <code>httpaa</code> struct. A request contains URI, which is parsed by the URI library.</p>
+<p>A Server from the Socket library creates listen socket and waiting for a connection. When connection is accepted, then server fills a <code>work</code> struct and post the work in Workers Pool.</p>
+<p>The Worker library contains a Workers Pool and Worker structs and functions.</p>
+<p>A Worker is waiting for work. When a work is available, the Worker takes the work and begin to execute. The Worker determines a type of the work by a port number of the connection. There is some types of Workers.</p>
+<p>A Worker for HTTP is type of Worker is suitable to work with HTTP request. The Worker receive data and process request with functions of HTTP library.</p>
+<p>The String library handles strings and buffers for other libraries. <b>Please note, that is alpha version, so automatic free of buffers is not implemented.</b></p>
+
+<h3>Step by Step walk-throughs</h3>
+
+<p>The <code>socketaa_server()</code> function will initialize Workers Pool, creates listen socket and begins waiting for connection. When connection is accepted, <code>socketaa_server()</code> function fills <code>workeraa_work</code> struct and calls <code>workeraa_set_work()</code> function of Worker library.</p>
+<pre lang="C++" data-lang-orig="C++">int workeraa_set_work(workeraa_pool *pool, void *p_work);
+</pre>
+<p>The <code>workeraa_set_work()</code> returns 0 on error, or 1 on success. The function locks mutex and copy <code>workeraa_work</code> struct to works array, then send signal to waiting worker, and unlocks mutex.</p>
+<pre lang="C++" data-lang-orig="C++">if (!pthread_mutex_lock(&pool->sync->mutex))
+{
+	/* Add work */
+	if (socketaa_set_work(pool->sync->work + pool->sync->work_write_index, p_work))
+	{
+		pool->sync->work_count++;
+		pthread_cond_signal(&pool->sync->cond);
+	}
+	pthread_mutex_unlock(&pool->sync->mutex);
+}
+</pre>
+<p>A worker is waiting for a work in <code>workeraa_get_work()</code> function.</p>
+<pre lang="C++" data-lang-orig="C++">if (!pthread_mutex_lock(&worker->sync->mutex))
+{
+	/* Waiting for work */
+	while (worker->sync->work_count == 0)
+	{
+		if (pthread_cond_wait(&worker->sync->cond, &worker->sync->mutex))
+		{
+			/* error */
+			break;
+		}
+	}
+
+	/* Get work */
+	if (worker->sync->work_count > 0)
+	{
+		if (workeraa_work_check_read_index(worker))
+		{
+			worker->work.p_work = worker->sync->work[worker->sync->work_read_index].p_work;
+			if (workeraa_work_set_next_read_index(worker))
+			{
+			}
+			worker->sync->work_count--;
+			is_get = 1;
+		}
+	}
+
+	if (!pthread_mutex_unlock(&worker->sync->mutex))
+	{
+	}
+}
+</pre>
+<p>When signal is received, <code>pthread_cond_wait()</code> function returns and worker gets pointer to <code>workeraa_work</code> struct with casting to <code>void</code> pointer because worker assigns work to the other type of worker.</p>
+<pre lang="C++" data-lang-orig="C++">WORKERAA_INLINE int workeraa_func(workeraa *worker, 
+		enum workeraa_func_enum n_func)
+{
+	int is_func = 0;
+
+	if (worker)
+	{
+		switch (worker->work_id)
+		{
+			case WORKERAA_HTTP_PORT:
+				is_func = workeraa_http_func(worker, n_func);
+				break;
+			case WORKERAA_HTTP_DEBUG_PORT:
+				is_func = workeraa_http_func(worker, n_func);
+				break;
+			case WORKERAA_HTTPS_PORT:
+				is_func = workeraa_https_func(worker, n_func);
+				break;
+			case WORKERAA_HTTPS_DEBUG_PORT:
+				is_func = workeraa_https_func(worker, n_func);
+				break;
+			default:
+				break;
+		}
+	}
+
+	return is_func;
+}
+</pre>
+<p>The <code>workeraa_func()</code> selects worker type by port number. If port number is <code>WORKERAA_HTTP_PORT</code> (80) or <code>WORKERAA_HTTP_DEBUG_PORT</code> (8080), then <code>workeraa_http</code> will be selected. By the way there is can be implemented different types of workers for every port number.</p>
+<p>A Worker for HTTP will initialize <code>receive</code> and <code>send</code> buffers, and calls Socket worker for receiving and sending data over connection socket.</p>
+<p>A Socket worker will waiting for data, copy it to worker's <code>receive</code> buffer and calls processing functions of Worker for HTTP.</p>
+<pre lang="C++" data-lang-orig="C++">/* 1. recv HTTP request
+ * 2. parse request */
+WORKERAA_INLINE int workeraa_http_recv(workeraa *worker)
+{
+	worker_http = (workeraa_http*)worker->work.p_struct;
+	/* Parse HTTP header */
+	if (workeraa_http_header(worker))
+	{
+		/* HTTP header is parsed,
+		 * execute specific actions for certain method */
+		workeraa_http_method(worker, worker_http->http.request.request_line.method);
+		if (worker_http->http.request.request_line.method == http11_method_get)
+		{
+			/* If GET method then set SEND flag */
+			socketaa_set_work_flags(&worker->work, SOCKETAA_WORK_FLAGS_IS_SEND | SOCKETAA_WORK_FLAGS_IS_SELECT);
+		}
+	}
+}
+</pre>
+<p>The <code>workeraa_http_recv()</code> function sets <code>SEND</code> flag if HTTP header is received and parsed.</p>
+<p>A Socket worker will call <code>workeraa_http_send()</code> function and send data over connection socket.</p>
+<pre lang="C++" data-lang-orig="C++">WORKERAA_INLINE int workeraa_http_send(workeraa *worker)
+{
+	worker_http = (workeraa_http*)worker->work.p_struct;
+	if (worker_http->is_header_send == 0)
+	{
+		if (workeraa_http_create_response(worker))
+		{
+			worker_http->is_header_send = 1;
+		}
+	}
+}
+</pre>
+
+<h2>Conclusion and Points of Interest</h2>
+
+<p>Initially this library was writing for WebRTC server. Actually the library can be used for different types of servers. This is 'alpha' version, so not all features are implemented. I will update the library. Stay tuned! Also the latest version of the library can be cloned with Git from my site.</p>
+<p><code>git clone http://9o1d.com/cpp.git</code></p>
+<p>Browse files on the page:</p>
+<p><code>http://9o1d.com/cpp</code></p>
+<p>The 'string' library is very interesting. It has some mathematics functions. Have a fun! In the next articles I will write how to work with them.</p>
+<p>Thanks for reading!</p>
+
+<!-------------------------------    That's it!   --------------------------->
+</body>
+
+</html>
+
